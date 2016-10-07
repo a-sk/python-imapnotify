@@ -3,7 +3,7 @@ import asyncio
 import json
 import logging
 
-from .core import Notifier
+from .core import Notifier, get_error_message
 
 
 def setup_logging(name='imapnotify', verbosity=1):
@@ -45,12 +45,14 @@ def main():
     setup_logging('aioimaplib.aioimaplib', verbosity=verbosity - 3)
   else:
     setup_logging('imapnotify', verbosity=verbosity)
-  n = Notifier(config['host'], config.get('port', 993), config['username'],
-               config['password'])
+  n = Notifier(config)
   for box in config['boxes']:
     n.add_box(box, config['onNewMail'], config['onNewMailPost'])
   try:
     loop.run_until_complete((n.run()))
   except KeyboardInterrupt:
     n.logger.error('KeyboardInterrupt, exiting')
+    loop.run_until_complete((n.stop()))
+  except Exception as e:
+    n.logger.error('Unhandled error: {}'.format(get_error_message(e)))
     loop.run_until_complete((n.stop()))

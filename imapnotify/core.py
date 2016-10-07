@@ -1,8 +1,10 @@
 import asyncio
 import logging
 import shlex
+import subprocess
 
 from aioimaplib import aioimaplib
+from boltons.cacheutils import cachedproperty
 
 
 class Error(Exception):
@@ -23,25 +25,52 @@ class AuthError(Error):
         host=host, port=port, login=login, password=password)
 
 
+class ConfigError(Error):
+
+  def __init__(self, msg):
+    self.message = msg
+
+
+class PasswordEvalError(Error):
+
+  def __init__(self, command, err):
+    self.err = err
+    self.command = command
+    self.message = "Error while trying to get password from command {0}: {1}".format(
+        command, err)
+
+
 class Notifier:
 
-  def __init__(self, host, port, login, password):
-    self.host = host
-    self.port = port
-    self.login = login
-    self.password = password
+  def __init__(self, config):
+    self.config = config
+    try:
+      self.host = config['host']
+      self.port = config['port']
+      self.login = config['username']
+    except KeyError as e:
+      raise ConfigError("missing required field '{}'".format(e.args[0]))
     self.boxes = {}
     self.logger = logging.getLogger('imapnotify')
+
+  @cachedproperty
+  def password(self):
+    try:
+      if 'password_eval' in self.config:
+        cmd = shlex.split(self.config['password_eval'])
+        return subprocess.check_output(cmd).decode('utf8')
+      return self.config['password']
+    except KeyError:
+      raise ConfigError("missing required field 'password'")
+    except subprocess.CalledProcessError as e:
+      raise PasswordEvalError(self.config['password_eval'], e)
 
   async def _connect(self, box):
     self.logger.info('connecting to {0}:{1} for {2}'.format(self.host,
                                                             self.port, box))
     imap_client = aioimaplib.IMAP4_SSL(host=self.host)
-    try:
-      await imap_client.wait_hello_from_server()
-      resp = await imap_client.login(self.login, self.password)
-    except:
-      await imap_client.logout()
+    await imap_client.wait_hello_from_server()
+    resp = await imap_client.login(self.login, self.password)
     if resp.result == 'OK':
       self.logger.info('connected to {0}:{1} for {2}'.format(self.host,
                                                              self.port, box))
@@ -64,7 +93,7 @@ class Notifier:
     for task in done:
       err = task.exception()
       if err:
-        self.logger.error(err)
+        self.logger.error(get_error_message(err))
 
   async def stop(self):
     for box in self.boxes.values():
@@ -144,6 +173,10 @@ async def check_output(args, **kwargs):
   data = bytearray()
   async for line in proc.stdout:
     data.extend(line)
+  await proc.wait()
+  retcode = proc.returncode
+  if retcode:
+    raise subprocess.CalledProcessError(retcode, args)
   return data
 
 

@@ -9,7 +9,8 @@ with open('imapnotify/__init__.py', 'rb') as f:
   version = str(
       ast.literal_eval(_version_re.search(f.read().decode('utf-8')).group(1)))
 
-install_requires = ['pytest-runner>=2.0,<3', 'aioimaplib>=0.5.14,<1.0.0']
+install_requires = ['pytest-runner>=2.0,<3', 'aioimaplib>=0.5.14,<1.0.0',
+                    'boltons>=16.5.0,<17.0.0']
 
 tests_require = install_requires + ['pytest', 'mock']
 
