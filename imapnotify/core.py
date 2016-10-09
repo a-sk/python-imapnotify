@@ -53,8 +53,14 @@ class Notifier:
     self.boxes = {}
     self.logger = logging.getLogger('imapnotify')
 
+  def _escape_password(self, password):
+    return password.replace('"', '\\"')
+
   @cachedproperty
   def password(self):
+    return self._escape_password(self._get_password())
+
+  def _get_password(self):
     try:
       if 'password_eval' in self.config:
         cmd = shlex.split(self.config['password_eval'])
