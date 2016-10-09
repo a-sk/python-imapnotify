@@ -137,7 +137,7 @@ class Notifier:
                                                    shlex.split(command))
 
   async def _on_new_message_post(self, box):
-    if self.boxes[box]['on_new_message_post'] is not None:
+    if self.boxes[box]['on_new_message_post']:
       command = self.boxes[box]['on_new_message_post']
       if '%s' in command:
         command = command % box
