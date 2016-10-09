@@ -58,7 +58,7 @@ class Notifier:
     try:
       if 'password_eval' in self.config:
         cmd = shlex.split(self.config['password_eval'])
-        return subprocess.check_output(cmd).decode('utf8')
+        return subprocess.check_output(cmd).decode('utf8').strip('\r\n')
       return self.config['password']
     except KeyError:
       raise ConfigError("missing required field 'password'")
